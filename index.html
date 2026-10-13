@@ -1,16 +1,18 @@
 <!doctype html>
 <html lang="pl"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#14171c">
 <title>Nawigator Rzeszów</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 <style>
 :root{--bg:#14171c;--panel:#1e232b;--line:#2f3641;--fg:#eef0f2;--dim:#9aa4b2;--amber:#ffb000;--red:#d32a00}
-*{box-sizing:border-box}html,body{height:100%;margin:0}
-body{background:var(--bg);color:var(--fg);font:16px/1.35 "Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+*{box-sizing:border-box}html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none}
+@supports(height:100dvh){html,body,#drive,#pick{height:100dvh}}
+body{background:var(--bg);color:var(--fg);font:16px/1.35 "Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;padding:0 env(safe-area-inset-right) 0 env(safe-area-inset-left);touch-action:manipulation;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 button,select{font:inherit;color:inherit}
-#pick{max-width:640px;margin:0 auto;padding:16px}
+#pick{max-width:640px;margin:0 auto;padding:calc(16px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));height:100%;overflow:auto;-webkit-overflow-scrolling:touch}
 h1{font-size:1.6rem;margin:0 0 12px;font-weight:600}
 .warn{background:#3a2a00;border-left:4px solid var(--amber);padding:10px 12px;margin:0 0 12px;font-size:.95rem}
 select{width:100%;padding:12px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:1.2rem}
@@ -21,22 +23,30 @@ select{width:100%;padding:12px;background:var(--panel);border:1px solid var(--li
 .trip b{font-variant-numeric:tabular-nums;font-size:1.3rem;min-width:3.6em}
 .badge{background:var(--red);color:#fff;border-radius:4px;padding:1px 8px;font-weight:600;min-width:2.4em;text-align:center}
 .dim{color:var(--dim)}
-#drive{display:none;height:100%;grid-template-rows:36% auto 1fr auto}
-#man{padding:12px 14px;background:var(--panel);border-left:6px solid var(--amber);font-size:1.4rem;font-weight:600}
-#map{background:#222}
-#list{overflow:auto;padding:0}
-.row{display:flex;gap:12px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);font-size:1.15rem}
+#drive{display:none;flex-direction:column;height:100%}
+#man{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--panel);border-left:6px solid var(--amber);font-size:1.2rem;font-weight:600;line-height:1.2}
+#mt{flex:1;min-width:0}
+#mapw{position:relative;overflow:hidden;background:#222;min-height:0;flex:1 1 0}
+#map{position:absolute;left:50%;top:50%;width:100%;height:100%;transform:translate(-50%,-50%);transition:transform .35s linear}
+#attr{position:absolute;right:4px;bottom:2px;z-index:500;font:11px Arial,sans-serif;color:#333;background:rgba(255,255,255,.75);padding:0 4px;border-radius:3px}
+#list{flex:0 0 auto;max-height:44%;max-height:44dvh;overflow:auto}
+.row{display:flex;gap:12px;align-items:center;padding:8px 14px;border-bottom:1px solid var(--line);font-size:1.1rem}
 .row time{font-variant-numeric:tabular-nums;min-width:3.2em;color:var(--dim)}
-.row.now{background:var(--amber);color:#14171c;font-size:1.6rem;font-weight:600;padding:14px}
+.row.now{background:var(--amber);color:#14171c;font-size:1.45rem;font-weight:600;padding:10px 14px}
 .row.now time{color:#14171c}
+.stop{margin-left:auto;background:#d32a00;color:#fff;border:2px solid #fff;border-radius:4px;padding:1px 12px;font-weight:800;letter-spacing:.08em;font-size:1rem;white-space:nowrap}
+.now .stop{font-size:1.2rem;padding:2px 14px}
+@keyframes bl{0%,49%{opacity:1}50%,100%{opacity:.1}}
+.stop.blink{animation:bl .8s linear infinite}
 .od{margin-left:auto;font-size:.8rem;border:1px solid currentColor;border-radius:4px;padding:0 6px;white-space:nowrap}
-#bar{display:flex;gap:8px;padding:10px 14px;background:var(--panel);align-items:center}
+#bar{display:flex;gap:6px;padding:8px 8px calc(8px + env(safe-area-inset-bottom));background:var(--panel);align-items:center}
+#fol{flex:1}
 #bar button[aria-pressed=true]{background:var(--amber);color:#14171c;border-color:var(--amber)}
-#bar button{padding:10px 14px;background:none;border:1px solid var(--line);border-radius:6px}
-#st{margin-left:auto;font-size:1.2rem;font-weight:600}
+#bar button{padding:12px 10px;font-size:.95rem;white-space:nowrap;background:none;border:1px solid var(--line);border-radius:6px}
+#st{font-size:1.05rem;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
 .late{color:#ff453a}.ok{color:#32d74b}.early{color:#ffd400}
-.hs{width:24px;height:24px;border-radius:50%;background:#ffd400;border:3px solid #0a7d3b;color:#0a7d3b;font:700 14px/18px Arial,sans-serif;text-align:center;box-sizing:border-box;transition:transform .2s}
-.hs.od{border-style:dashed}.hs.past{opacity:.4}.hs.cur{transform:scale(1.6);box-shadow:0 0 0 4px rgba(255,176,0,.6);opacity:1}
+.hs{display:block;transition:transform .2s;transform:rotate(var(--ur,0deg))}
+.hs.past{opacity:.4}.hs.cur{opacity:1;transform:rotate(var(--ur,0deg)) scale(1.6);filter:drop-shadow(0 0 4px rgba(255,176,0,.95))}
 .me svg{display:block;transition:transform .3s;filter:drop-shadow(0 0 3px #000)}
 </style></head><body>
 <section id="pick">
@@ -47,13 +57,13 @@ select{width:100%;padding:12px;background:var(--panel);border:1px solid var(--li
  <div id="trips"></div>
 </section>
 <section id="drive">
- <div id="map"></div><div id="man"></div><div id="list"></div>
- <div id="bar"><button id="back">Kursy</button><button id="prev">◀</button><button id="next">▶</button><button id="fol" aria-pressed="false">Nie wyśrodkowano</button><button id="snd" aria-pressed="false">Głos: wył.</button><span id="st"></span></div>
+ <div id="mapw"><div id="map"></div><div id="attr">© OpenStreetMap</div></div><div id="man"><span id="mt"></span><span id="st"></span></div><div id="list"></div>
+ <div id="bar"><button id="back">Kursy</button><button id="prev">◀</button><button id="next">▶</button><button id="fol" aria-pressed="false">Nie wyśrodkowano</button><button id="snd" aria-pressed="false">Głos: wył.</button></div>
 </section>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 const $=s=>document.querySelector(s);
-let sa=[],lastAnn=-1,mk=[],hd=0,lp=null,rt={},rtT=0,snd=false,cd=[],mn=[],al=0,started=false,said={},auds={},D,T=[],trip,cur=0,map,lay,me,follow=true,stale=false,wl;
+let ang=0,sa=[],lastAnn=-1,mk=[],hd=0,lp=null,rt={},rtT=0,snd=false,cd=[],mn=[],al=0,started=false,said={},auds={},D,T=[],trip,cur=0,map,lay,me,follow=true,stale=false,wl;
 const fmt=s=>{s%=86400;return String(s/3600|0).padStart(2,'0')+':'+String(s%3600/60|0).padStart(2,'0')};
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
 function active(){
@@ -81,14 +91,14 @@ function vars(){
   const r=el('button','trip');r.append(el('b',0,fmt(t[7][0])),el('span','badge',t[3]),el('span',0,t[4]),el('span','dim',fmt(t[7].at(-1))));
   r.lastChild.style.marginLeft='auto';r.onclick=()=>open(t);$('#trips').append(r)}}
 function open(t){
- trip=t;cur=0;lastAnn=-1;follow=false;started=false;al=0;said={};initShape();$('#pick').style.display='none';$('#drive').style.display='grid';
- if(!map){map=L.map('map',{zoomControl:false}).setView([50.04,22.0],12);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+ trip=t;cur=0;lastAnn=-1;setFol(false);started=false;al=0;said={};initShape();$('#pick').style.display='none';$('#drive').style.display='flex';
+ if(!map){map=L.map('map',{zoomControl:false,attributionControl:false,touchZoom:'center'}).setView([50.04,22.0],12);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
   map.on('dragstart',()=>setFol(false))}
  if(lay)lay.remove();lay=null;mk=[];
  setTimeout(()=>{if(trip!==t)return;map.invalidateSize();map.fitBounds(t[6].map(i=>[D.stops[i][1],D.stops[i][2]]),{padding:[20,20],animate:false});
   lay=L.layerGroup().addTo(map);const sh=D.shapes[t[5]]||[];
   if(sh.length)L.polyline(sh,{color:'#d32a00',weight:5}).addTo(lay);
-  mk=t[6].map((i,k)=>L.marker([D.stops[i][1],D.stops[i][2]],{icon:L.divIcon({className:'',html:'<div class="hs'+(t[8][k]?' od':'')+'">H</div>',iconSize:[24,24]})}).addTo(lay));render()},60);
+  mk=t[6].map((i,k)=>L.marker([D.stops[i][1],D.stops[i][2]],{icon:L.divIcon({className:'',html:'<svg class="hs" viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="10" fill="#ffd400" stroke="#0a7d3b" stroke-width="3"'+(t[8][k]?' stroke-dasharray="4.9 2.95"':'')+'/><text x="12" y="12" dy=".36em" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="14" fill="#0a7d3b">H</text></svg>',iconSize:[24,24]})}).addTo(lay));render()},60);
  gps();render();try{navigator.wakeLock?.request('screen').then(w=>wl=w)}catch(e){}}
 function render(){
  if(cur!==lastAnn){lastAnn=cur;announce(cur)}
@@ -96,12 +106,13 @@ function render(){
  for(let k=cur;k<Math.min(cur+6,trip[6].length);k++){
   const r=el('div','row'+(k===cur?' now':''));
   r.append(el('time',0,fmt(trip[7][k])),el('span',0,D.stops[trip[6][k]][0]));
-  if(trip[8][k])r.append(el('span','od','NA ŻĄDANIE'));
+  if(trip[8][k])r.append(el('span','od','NA ŻĄDANIE'));else r.append(el('span','stop','STOP'));
   r.onclick=()=>{cur=k;render()};L_.append(r)}
  if(cur>=trip[6].length-1)L_.append(el('div','row dim','Przystanek końcowy kursu'));
  const n=new Date();let d=(n.getHours()*3600+n.getMinutes()*60+n.getSeconds())-trip[7][cur]%86400;const q=rt[trip[9]];if(q&&Date.now()-rtT<60000)d=q.delay;const v=-d/60,TOL=30,s=$('#st');
  s.textContent=(v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(2).replace('.',',')+' min'+(q&&Date.now()-rtT<60000?' · live':'');
  s.className=Math.abs(d)<=TOL?'ok':d>0?'late':'early';
+ blinkUpdate();
  mk.forEach((m,k)=>{const e=m.getElement()?.firstChild;if(e){e.classList.toggle('past',k<cur);e.classList.toggle('cur',k===cur)}});
  const t=D.stops[trip[6][cur]];if(follow&&!me)map.panTo([t[1],t[2]])}
 const dist=(a,b,c,d)=>Math.hypot((d-b)*Math.cos(a*Math.PI/180)*111320,(c-a)*110540);
@@ -115,13 +126,13 @@ function gps(){
   const mv=lp&&dist(lp[0],lp[1],y,x)>8;let hh=p.coords.heading;
   if((hh==null||isNaN(hh))&&mv)hh=(Math.atan2((x-lp[1])*Math.cos(y*Math.PI/180),y-lp[0])*180/Math.PI+360)%360;
   if(hh!=null&&!isNaN(hh))hd=hh;if(!lp||mv)lp=[y,x];
-  me.getElement().firstChild.firstChild.style.transform='rotate('+hd+'deg)';if(follow)map.setView([y,x],Math.max(map.getZoom(),16));
+  me.getElement().firstChild.firstChild.style.transform='rotate('+hd+'deg)';if(follow){spin(hd);map.setView(ahead(y,x),Math.max(map.getZoom(),16),{animate:false})}
   proj(y,x)
  },()=>{$('#st').textContent='brak GPS'},{enableHighAccuracy:true,maximumAge:2000})}
 const MOD={left:'w lewo',right:'w prawo','slight left':'lekko w lewo','slight right':'lekko w prawo','sharp left':'ostro w lewo','sharp right':'ostro w prawo',straight:'prosto',uturn:'zawróć'};
 const mtxt=m=>m[3]==='rotary'||m[3]==='roundabout'?'Na rondzie wybierz '+(m[5]||'')+'. zjazd':(m[3]==='fork'?'Na rozwidleniu trzymaj się '+(m[4].includes('left')?'lewej':'prawej'):'Skręć '+(MOD[m[4]]||m[4]))+(m[6]?', '+m[6]:'');
 const say=t=>{if(!snd||!window.speechSynthesis)return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='pl-PL';speechSynthesis.speak(u)};
-const A=new Audio();A.onerror=()=>{$('#man').textContent='Brak pliku dźwiękowego: '+A.src.split('/').pop()};
+const A=new Audio();A.onerror=()=>{$('#mt').textContent='Brak pliku dźwiękowego: '+A.src.split('/').pop()};
 const play=n=>{if(!snd)return;A.src='audio/'+n+'.mp3';A.play().catch(()=>{$('#snd').textContent='Głos: dotknij'})};
 function announce(k){const n=trip[6].length;play(k===n-1?'przystanek_koncowy_kursu':trip[8][k]?'na_zadanie':'przystanek_obowiazkowy')}
 function pr(y,x,lo,hi,first){const sh=D.shapes[trip[5]];if(!sh||sh.length<2)return[lo,1e9];const k=Math.cos(y*Math.PI/180)*111320,c=[];
@@ -131,9 +142,11 @@ function pr(y,x,lo,hi,first){const sh=D.shapes[trip[5]];if(!sh||sh.length<2)retu
 function initShape(){const sh=D.shapes[trip[5]]||[];cd=[0];for(let i=1;i<sh.length;i++)cd.push(cd[i-1]+dist(sh[i-1][0],sh[i-1][1],sh[i][0],sh[i][1]));mn=D.man[trip[5]]||[];
  sa=[];let pv=0;for(const i of trip[6]){const s=D.stops[i],r=pr(s[1],s[2],pv-30,pv+3000,0)[0];sa.push(r);pv=Math.max(pv,r)}manv()}
 function proj(y,x){if(!D.shapes[trip[5]])return;const[r,d]=started?pr(y,x,al-150,al+1000,0):pr(y,x,-1,1e9,1),off=d>60;
- if(!off){al=r;started=true;advance()}manv(off)}
+ if(!off){al=r;started=true;advance()}manv(off);blinkUpdate()}
+const BL=200; // m przed przystankiem, od których STOP mruga
+function blinkUpdate(){const e=document.querySelector('#list .now .stop');if(e)e.classList.toggle('blink',started&&sa[cur]-al<=BL&&sa[cur]-al>-25)}
 function advance(){let k=cur;while(k<trip[6].length-1&&sa[k]<al-25)k++;if(k!==cur){cur=k;render();announce(k)}}
-function manv(off){const B=$('#man');if(!mn.length){B.textContent='Brak sprawdzonych instrukcji skrętów dla tej trasy';return}
+function manv(off){const B=$('#mt');if(!mn.length){B.textContent='Brak sprawdzonych instrukcji skrętów dla tej trasy';return}
  const m=mn.find(m=>m[2]>al-20);if(!m){B.textContent='Dalej do końca trasy';return}
  const d=Math.max(0,Math.round((m[2]-al)/10)*10),t=mtxt(m);B.textContent=(off?'POZA TRASĄ · ':'')+(started?(d>0?'Za '+d+' m: ':'Teraz: '):'Start: ')+t;
  if(!started||off)return;const th=[30,150,400].find(h=>d<=h);
@@ -154,8 +167,16 @@ pollRT();setInterval(pollRT,15000);
 $('#back').onclick=()=>{$('#drive').style.display='none';$('#pick').style.display='block';wl?.release?.()};
 $('#prev').onclick=()=>{cur=Math.max(0,cur-1);render()};
 $('#next').onclick=()=>{cur=Math.min(trip[6].length-1,cur+1);lastAnn=cur;render();announce(cur)};
-function setFol(v){follow=v;const b=$('#fol');b.textContent=v?'Wyśrodkowano':'Nie wyśrodkowano';b.setAttribute('aria-pressed',v)}
-$('#fol').onclick=()=>{setFol(!follow);if(follow&&me)map.setView(me.getLatLng(),Math.max(map.getZoom(),16))};
-setInterval(()=>{if(trip&&$('#drive').style.display==='grid')render()},30000);
+function layout(){const w=$('#mapw').clientWidth,h=$('#mapw').clientHeight,m=$('#map'),d=follow?Math.ceil(Math.hypot(w,h)):0;m.style.width=d?d+'px':'100%';m.style.height=d?d+'px':'100%';if(map)map.invalidateSize({animate:false})}
+function spin(a){if(a==null)return;ang+=((a-ang)%360+540)%360-180;const m=$('#map');m.style.transform='translate(-50%,-50%) rotate('+(-ang)+'deg)';m.style.setProperty('--ur',ang+'deg')}
+function ahead(y,x){const z=Math.max(map.getZoom(),16),c=Math.cos(y*Math.PI/180),m=$('#mapw').clientHeight*.2*156543*c/2**z,r=hd*Math.PI/180;return[y+Math.cos(r)*m/110540,x+Math.sin(r)*m/(111320*c)]}
+function setFol(v){follow=v;const b=$('#fol');b.textContent=v?'Wyśrodkowano':'Nie wyśrodkowano';b.setAttribute('aria-pressed',v);if(!map)return;layout();
+ if(v){map.dragging.disable();spin(hd);if(me){const l=me.getLatLng();map.setView(ahead(l.lat,l.lng),Math.max(map.getZoom(),16),{animate:false})}}
+ else{map.dragging.enable();ang=0;const m=$('#map');m.style.transform='translate(-50%,-50%) rotate(0deg)';m.style.setProperty('--ur','0deg')}}
+$('#fol').onclick=()=>setFol(!follow);
+addEventListener('resize',layout);
+if(window.ResizeObserver)new ResizeObserver(layout).observe($('#mapw'));
+addEventListener('gesturestart',e=>e.preventDefault());
+setInterval(()=>{if(trip&&$('#drive').style.display==='flex')render()},30000);
 init().catch(e=>{$('#warn').textContent='Nie wczytano data.json: '+e.message});
 </script></body></html>

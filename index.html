@@ -38,6 +38,7 @@ select{width:100%;background:#f8fafc;color:#0f172a;border:0;border-radius:14px;p
 #etap{display:flex;align-items:center;gap:10px;padding:6px 12px;background:#0d1626;font-size:.95rem}
 #etap b{font-weight:700}#kind{font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #brk{color:var(--yel);font-weight:800;white-space:nowrap}
+#brk.go{color:#ff6b6b;animation:bl .8s linear infinite}
 #mapw{position:relative;overflow:hidden;background:#222;min-height:130px;flex:1 1 0}
 #map{position:absolute;left:50%;top:50%;width:100%;height:100%;transform:translate(-50%,-50%);transition:transform .35s linear}
 #attr{position:absolute;left:4px;bottom:2px;z-index:500;font:11px Arial,sans-serif;color:#333;background:rgba(255,255,255,.75);padding:0 4px;border-radius:3px}
@@ -152,9 +153,16 @@ $('#go').onclick=()=>startShift(line,brg,ti);
 function startShift(b,v,idx){line=b;brg=v;shift=sh_();if(!shift.length)return;si=Math.max(0,Math.min(shift.length-1,idx));open(shift[si])}
 $('#menu').onclick=()=>{if(trip){line=trip[0];$('#br').value=line;fillBrg(trip[1]);ti=si;card()}$('#back').style.display=trip?'block':'none';$('#drive').style.display='none';$('#pick').style.display='block'};
 $('#back').onclick=()=>{$('#pick').style.display='none';$('#drive').style.display='flex'};
+let brkPlan='';
+const fr=r=>r>=3600?(r/3600|0)+'h'+pad(r%3600/60|0):(r/60|0)+':'+pad(r%60);
+/* czas do końca przerwy: odliczanie do rozkładowego odjazdu następnego kursu */
+function brkUpdate(){if(!trip)return;const e=$('#brk'),nx=shift[si+1];let txt=brkPlan,go=false;
+ if(cur===0){const r=trip[7][0]-nowS();if(r>0)txt=(si>0?'PRZERWA ':'ODJAZD ZA ')+fr(r);else if(r>-1800){txt='ODJAZD';go=true}}
+ else if(cur===trip[6].length-1&&started&&sa[cur]-al<=30){if(!nx)txt='KONIEC ZMIANY';else{const r=nx[7][0]-nowS();if(r>0)txt='PRZERWA '+fr(r);else{txt='ODJAZD';go=true}}}
+ e.textContent=txt;e.classList.toggle('go',go)}
 function hdr(){
  const t=trip;$('#lt').textContent=t[3];$('#dirn').textContent=t[4]||'';$('#brn').textContent=t[0]+'/'+(t[1]||'—');$('#et').textContent=(si+1)+'/'+shift.length;$('#kind').textContent=kindOf(t);
- const nx=shift[si+1];let b='OSTATNI KURS';if(nx){const g=Math.max(0,Math.round((nx[7][0]-t[7].at(-1))/60));b='PRZERWA '+(g>=60?(g/60|0)+'H'+pad(g%60):g+' MIN')}$('#brk').textContent=b}
+ const nx=shift[si+1];let b='OSTATNI KURS';if(nx){const g=Math.max(0,Math.round((nx[7][0]-t[7].at(-1))/60));b=g===0?'BEZ PRZERWY':'PRZERWA '+(g>=60?(g/60|0)+'H'+pad(g%60):g+' MIN')}brkPlan=b;brkUpdate()}
 function open(t){
  trip=t;cur=0;lastAnn=-1;fin=false;recov=false;fx=null;dFix=null;listKey='';setFol(false);started=false;al=0;said={};onRt=false;initShape();hdr();$('#pick').style.display='none';$('#drive').style.display='flex';$('#off').style.display='none';
  if(!map){map=L.map('map',{zoomControl:false,attributionControl:false,touchZoom:'center'}).setView([50.04,22.0],12);L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
@@ -180,7 +188,7 @@ function render(){
  if(key!==listKey){listKey=key;const L_=$('#list');L_.replaceChildren();
   for(let k=cur+1;k<Math.min(n,cur+80);k++){const r=el('div','row');r.append(el('span','n',D.stops[trip[6][k]][0]),el('span','tag '+(trip[8][k]?'n':'s'),trip[8][k]?'NŻ':'STOP'));L_.append(r)}
   if(cur>=n-1)L_.append(el('div','row dim','Przystanek końcowy kursu'));L_.scrollTop=0}
- dlyUpdate();blinkUpdate();
+ dlyUpdate();brkUpdate();blinkUpdate();
  mk.forEach((m,k)=>{const e=m.getElement()?.firstChild;if(e){e.classList.toggle('past',k<cur);e.classList.toggle('cur',k===cur)}});
  if(follow&&!me)map.panTo([st[1],st[2]])}
 const dist=(a,b,c,d)=>Math.hypot((d-b)*Math.cos(a*Math.PI/180)*111320,(c-a)*110540);
@@ -274,14 +282,14 @@ function proj(y,x){if(!D.shapes[trip[5]])return;let[r,d]=started?pr(y,x,al-150,a
  if(started&&(d>60||recov)){const g=pr(y,x,al-300,1e9,1);if(g[1]<=40||(recov&&g[1]<d)){r=g[0];d=g[1]}}   // po utracie GPS szukamy dalej na całej trasie
  recov=false;const off=d>60;
  if(!off){al=r;started=true;advance()}onRt=!off&&started;$('#off').style.display=off&&started?'block':'none';manv(off);blinkUpdate();
- if(!off&&started&&!fin&&cur===trip[6].length-1&&sa[cur]-al<=20){fin=true;const t0=trip;setTimeout(()=>{if(trip===t0&&si<shift.length-1){si++;open(shift[si])}},4000)}}
+ if(!off&&started&&!fin&&cur===trip[6].length-1&&(sa[cur]-al<=20||al>=cd[cd.length-1]-12)){fin=true;const t0=trip;setTimeout(()=>{if(trip===t0&&si<shift.length-1){si++;open(shift[si])}},4000)}}
 const BL=200; // m przed przystankiem, od których STOP mruga
 function blinkUpdate(){const e=$('#csb');e.classList.toggle('blink',started&&!trip[8][cur]&&sa[cur]-al<=BL&&sa[cur]-al>-25);
  const m=Math.round(sa[cur]-al);$('#dpm').textContent=started?(m>=1000?(m/1000).toFixed(1).replace('.',',')+' km':Math.max(0,m)+' m'):'—';
  $('#cslab').textContent=started&&sa[cur]-al>30?'Następny przystanek':'Aktualny przystanek'}
 function advance(){let k=cur;while(k<trip[6].length-1&&sa[k]<al-25)k++;if(k!==cur){dFix=diffS(k-1);cur=k;render()}}
 $('#prev').onclick=()=>{cur=Math.max(0,cur-1);render()};
-$('#next').onclick=()=>{cur=Math.min(trip[6].length-1,cur+1);render()};
+$('#next').onclick=()=>{if(cur>=trip[6].length-1&&si<shift.length-1){si++;open(shift[si]);return}cur=Math.min(trip[6].length-1,cur+1);render()};
 /* mapa obracana zgodnie z kierunkiem jazdy */
 function layout(){const w=$('#mapw').clientWidth,h=$('#mapw').clientHeight,m=$('#map'),d=follow?Math.ceil(Math.hypot(w,h)):0;m.style.width=d?d+'px':'100%';m.style.height=d?d+'px':'100%';if(map)map.invalidateSize({animate:false})}
 function spin(a){if(a==null)return;ang+=((a-ang)%360+540)%360-180;const m=$('#map');m.style.transform='translate(-50%,-50%) rotate('+(-ang)+'deg)';m.style.setProperty('--ur',ang+'deg')}
@@ -304,7 +312,7 @@ $('#radio').onclick=()=>{const P=$('#radioP');P.replaceChildren();const h=el('di
 /* GPS po powrocie z innej karty */
 document.addEventListener('visibilitychange',()=>{if(document.hidden)return;recov=true;if(wid!=null){navigator.geolocation.clearWatch(wid);wid=null}if(trip){gps();wake()}});
 setInterval(()=>{const a=Date.now()-lastFix;$('#gdot').className=!lastFix?'o':a>10000?'r':accu>40?'o':'g'},1000);
-setInterval(dlyUpdate,1000);
+setInterval(()=>{dlyUpdate();brkUpdate()},1000);
 addEventListener('resize',layout);
 if(window.ResizeObserver)new ResizeObserver(layout).observe($('#mapw'));
 addEventListener('gesturestart',e=>e.preventDefault());

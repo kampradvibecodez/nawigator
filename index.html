@@ -40,7 +40,7 @@ select{width:100%;background:#f8fafc;color:#0f172a;border:0;border-radius:14px;p
 #brk{color:var(--yel);font-weight:800;white-space:nowrap}
 #brk.go{color:#ff6b6b;animation:bl .8s linear infinite}
 #mapw{position:relative;overflow:hidden;background:#222;min-height:130px;flex:1 1 0}
-#map{position:absolute;left:50%;top:50%;width:100%;height:100%;transform:translate(-50%,-50%);transition:transform .35s linear}
+#map{position:absolute;left:50%;top:50%;width:100%;height:100%;transform:translate(-50%,-50%);transition:transform .2s linear;will-change:transform}
 #attr{position:absolute;left:4px;bottom:2px;z-index:500;font:11px Arial,sans-serif;color:#333;background:rgba(255,255,255,.75);padding:0 4px;border-radius:3px}
 #dp{position:absolute;right:8px;bottom:8px;z-index:600;background:rgba(11,18,32,.88);border-radius:12px;padding:6px 14px;text-align:right}
 #dpm{display:block;font-size:1.7rem;font-weight:800;line-height:1.1}
@@ -81,9 +81,9 @@ select{width:100%;background:#f8fafc;color:#0f172a;border:0;border-radius:14px;p
 #rq{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--btn);font-size:1.1rem;margin-bottom:8px}
 #np{min-height:24px;color:var(--yel);font-weight:700;margin-bottom:6px}.dim{color:var(--lab)}
 .st{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;padding:12px 8px;background:none;border:0;border-bottom:1px solid var(--line)}
-.hs{display:block;opacity:.85;transition:transform .2s;transform:rotate(var(--ur,0deg))}
-.hs.past{opacity:.35}.hs.cur{opacity:1;transform:rotate(var(--ur,0deg)) scale(1.6);filter:drop-shadow(0 0 4px rgba(255,176,0,.95))}
-.me svg{display:block;transition:transform .3s;filter:drop-shadow(0 0 3px #000)}
+.hs{overflow:visible;display:block;opacity:.85;transition:transform .2s;transform:rotate(var(--ur,0deg))}
+.hs .gl{transition:opacity .2s}.hs.cur .gl{opacity:1}.hs.past{opacity:.35}.hs.cur{opacity:1;transform:rotate(var(--ur,0deg)) scale(1.6)}
+.me svg{display:block;transition:transform .2s}
 </style></head><body>
 <section id="pick">
  <button class="ob" id="back" style="display:none">Wstecz do mapy</button>
@@ -171,7 +171,7 @@ function open(t){
  setTimeout(()=>{if(trip!==t)return;map.invalidateSize();map.fitBounds(t[6].map(i=>[D.stops[i][1],D.stops[i][2]]),{padding:[20,20],animate:false});
   lay=L.layerGroup().addTo(map);const sh=D.shapes[t[5]]||[];
   if(sh.length)L.polyline(sh,{color:'#d32a00',weight:5}).addTo(lay);
-  mk=t[6].map((i,k)=>L.marker([D.stops[i][1],D.stops[i][2]],{icon:L.divIcon({className:'',html:'<svg class="hs" viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="10" fill="#ffd400" stroke="#0a7d3b" stroke-width="3"'+(t[8][k]?' stroke-dasharray="4.9 2.95"':'')+'/><text x="12" y="12" dy=".36em" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="14" fill="#0a7d3b">H</text></svg>',iconSize:[24,24]})}).addTo(lay));render()},60);
+  mk=t[6].map((i,k)=>L.marker([D.stops[i][1],D.stops[i][2]],{icon:L.divIcon({className:'',html:'<svg class="hs" viewBox="0 0 24 24" width="24" height="24"><circle class="gl" cx="12" cy="12" r="16" fill="#ffb000" fill-opacity=".5" opacity="0"/><circle cx="12" cy="12" r="10" fill="#ffd400" stroke="#0a7d3b" stroke-width="3"'+(t[8][k]?' stroke-dasharray="4.9 2.95"':'')+'/><text x="12" y="12" dy=".36em" text-anchor="middle" font-family="Arial,sans-serif" font-weight="700" font-size="14" fill="#0a7d3b">H</text></svg>',iconSize:[24,24]})}).addTo(lay));render()},60);
  gps();render();wake()}
 function wake(){try{navigator.wakeLock?.request('screen').then(w=>wl=w).catch(()=>{})}catch(e){}}
 /* opóźnienie = różnica między obecną godziną a rozkładową godziną odjazdu z przystanku */
@@ -197,20 +197,22 @@ function gps(){
  if(wid!=null||!navigator.geolocation)return;
  wid=navigator.geolocation.watchPosition(p=>{
   const{latitude:y,longitude:x,accuracy:ac}=p.coords,now=Date.now();let sp=p.coords.speed;lastFix=now;accu=ac;
-  if(sp==null||isNaN(sp))sp=pf?dist(pf.y,pf.x,y,x)/Math.max(.5,(now-pf.t)/1000):0;pf={y,x,t:now};
-  if(!me)me=L.marker([y,x],{zIndexOffset:1000,icon:L.divIcon({className:'',html:'<div class="me"><svg viewBox="0 0 28 28" width="30" height="30"><path d="M14 2L24 25L14 19L4 25Z" fill="#ffb000" fill-opacity=".92" stroke="#14171c" stroke-width="2" stroke-linejoin="round"/></svg></div>',iconSize:[30,30]})}).addTo(map),setFol(true);
-  me.setLatLng([y,x]);proj(y,x);
+  const pb=pf;if(sp==null||isNaN(sp))sp=pb?dist(pb.y,pb.x,y,x)/Math.max(.5,(now-pb.t)/1000):0;pf={y,x,t:now};let gh=null;if(sp>2){const hh=p.coords.heading;if(hh!=null&&!isNaN(hh))gh=hh;else if(pb&&dist(pb.y,pb.x,y,x)>6)gh=(Math.atan2((x-pb.x)*Math.cos(y*Math.PI/180),y-pb.y)*180/Math.PI+360)%360}
+  if(!me)me=L.marker([y,x],{zIndexOffset:1000,icon:L.divIcon({className:'',html:'<div class="me"><svg viewBox="-5 -5 38 38" width="42" height="42"><g transform="translate(0,2.5)" fill="#000" stroke="#000" stroke-linejoin="round"><path d="M14 2L24 25L14 19L4 25Z" fill-opacity=".09" stroke-opacity=".09" stroke-width="10"/><path d="M14 2L24 25L14 19L4 25Z" fill-opacity=".13" stroke-opacity=".13" stroke-width="7"/><path d="M14 2L24 25L14 19L4 25Z" fill-opacity=".2" stroke-opacity=".2" stroke-width="4"/></g><path d="M14 2L24 25L14 19L4 25Z" fill="#ffb000" fill-opacity=".92" stroke="#14171c" stroke-width="2" stroke-linejoin="round"/></svg></div>',iconSize:[42,42]})}).addTo(map),setFol(true);
+  me.setLatLng([y,x]);proj(y,x,gh);
   const mv=lp&&dist(lp[0],lp[1],y,x)>8;let h=null;
   if(onRt)h=routeHd(al);else if(sp>1.5&&p.coords.heading!=null&&!isNaN(p.coords.heading))h=p.coords.heading;else if(mv)h=(Math.atan2((x-lp[1])*Math.cos(y*Math.PI/180),y-lp[0])*180/Math.PI+360)%360;
   if(!lp||mv)lp=[y,x];if(h!=null)hd=h;
   fx={t:now,y,x,sp,al,on:onRt};tick()
- },e=>{lastFix=0;$('#gdot').className='r';if(e.code===1)toast('Brak zgody na lokalizację – włącz ją w ustawieniach przeglądarki',8000)},{enableHighAccuracy:true,maximumAge:0,timeout:8000})}
+ },e=>{lastFix=0;$('#gdot').className='r';if(e.code===1)toast('Brak zgody na lokalizację – włącz ją w ustawieniach przeglądarki',8000)},{enableHighAccuracy:true,maximumAge:0,timeout:20000})}
 /* płynny ruch strzałki między odczytami GPS (5 razy na sekundę) */
+let lastSet=null,lastSp=null,lastA=null;
 function tick(){if(!fx||!me||!trip||document.hidden)return;const dt=Math.min((Date.now()-fx.t)/1000,1.5);let y=fx.y,x=fx.x;
  if(fx.sp>0.8){const dd=fx.sp*dt;if(fx.on&&D.shapes[trip[5]]){[y,x]=ptAt(Math.min(fx.al+dd,cd[cd.length-1]))}else{const r=hd*Math.PI/180,c=Math.cos(y*Math.PI/180);y+=Math.cos(r)*dd/110540;x+=Math.sin(r)*dd/(111320*c)}}
- me.setLatLng([y,x]);me.getElement().firstChild.firstChild.style.transform='rotate('+hd+'deg)';
- if(follow){spin(hd);map.setView(ahead(y,x),Math.max(map.getZoom(),16),{animate:false})}
- if(started&&fx.on){const m=Math.round(sa[cur]-(fx.al+(fx.sp>0.8?fx.sp*dt:0)));$('#dpm').textContent=m>=1000?(m/1000).toFixed(1).replace('.',',')+' km':Math.max(0,m)+' m'}}
+ me.setLatLng([y,x]);const a=Math.round(hd);if(a!==lastA){lastA=a;me.getElement().firstChild.firstChild.style.transform='rotate('+a+'deg)'}
+ if(follow){const mv=!lastSet||dist(lastSet[0],lastSet[1],y,x)>0.7,rt=lastSp==null||Math.abs(((hd-lastSp+540)%360)-180)>=1;
+  if(mv||rt){lastSet=[y,x];lastSp=hd;spin(hd);map.setView(ahead(y,x),Math.max(map.getZoom(),16),{animate:false})}}
+ if(started&&fx.on){const m=Math.round(sa[cur]-(fx.al+(fx.sp>0.8?fx.sp*dt:0))),t=m>=1000?(m/1000).toFixed(1).replace('.',',')+' km':Math.max(0,m)+' m',e=$('#dpm');if(e.textContent!==t)e.textContent=t}}
 setInterval(tick,200);
 function ptAt(s){const sh=D.shapes[trip[5]];s=Math.max(0,Math.min(cd[cd.length-1],s));let i=0;while(i<cd.length-2&&cd[i+1]<s)i++;const L=cd[i+1]-cd[i]||1,t=(s-cd[i])/L;return[sh[i][0]+(sh[i+1][0]-sh[i][0])*t,sh[i][1]+(sh[i+1][1]-sh[i][1])*t]}
 function routeHd(a){if(!D.shapes[trip[5]]||cd.length<2)return null;const p=ptAt(a),q=ptAt(a+25);if(dist(p[0],p[1],q[0],q[1])<3)return null;return(Math.atan2((q[1]-p[1])*Math.cos(p[0]*Math.PI/180),q[0]-p[0])*180/Math.PI+360)%360}
@@ -222,7 +224,7 @@ const msay=m=>m[3]==='uturn'?'Zawróć':isRb(m)?(m[5]>0?'Na rondzie wybierz '+(O
 const R=new Audio();R.preload='none';
 function pauseRadio(){if(radioOn&&!R.paused){R.pause();rdPaused=true}}
 function resumeRadio(){setTimeout(()=>{if(rdPaused&&radioOn&&!speechSynthesis.speaking&&A.paused){rdPaused=false;R.play().catch(()=>{})}},500)}
-const say=t=>{if(!snd||!window.speechSynthesis)return;pauseRadio();speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='pl-PL';u.onend=u.onerror=resumeRadio;speechSynthesis.speak(u)};
+const say=t=>{if(!snd||!window.speechSynthesis)return;pauseRadio();setTimeout(()=>{if(speechSynthesis.speaking)speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='pl-PL';u.onend=u.onerror=resumeRadio;speechSynthesis.speak(u)},0)};
 const A=new Audio();A.onended=resumeRadio;A.onerror=()=>toast('Nie można odtworzyć dźwięku zapowiedzi');
 const play=n=>{if(!snd||!SND[n])return;pauseRadio();A.src=SND[n];A.play().catch(()=>toast('Dźwięk zablokowany – dotknij przycisku Głos'))};
 function announce(k){const n=trip[6].length;play(k===n-1?'przystanek_koncowy_kursu':trip[8][k]?'na_zadanie':'przystanek_obowiazkowy')}
@@ -261,7 +263,8 @@ async function loadRB(){
 function rbEvents(){const sh=D.shapes[trip[5]];if(!RBD||!sh||cd.length<2)return[];
  const tot=cd[cd.length-1],S=[],out=[];let i=0;
  for(let s=0;s<=tot;s+=4){while(i<cd.length-2&&cd[i+1]<s)i++;const L=cd[i+1]-cd[i]||1,t=(s-cd[i])/L;S.push([sh[i][0]+(sh[i+1][0]-sh[i][0])*t,sh[i][1]+(sh[i+1][1]-sh[i][1])*t,s])}
- for(const R of RBD){const near=S.filter(p=>dist(R.c[0],R.c[1],p[0],p[1])<=R.r+15);if(near.length<3)continue;
+ let a0=90,a1=-90,o0=180,o1=-180;for(const p of S){a0=Math.min(a0,p[0]);a1=Math.max(a1,p[0]);o0=Math.min(o0,p[1]);o1=Math.max(o1,p[1])}
+ for(const R of RBD){if(R.c[0]<a0-.002||R.c[0]>a1+.002||R.c[1]<o0-.003||R.c[1]>o1+.003)continue;const near=S.filter(p=>dist(R.c[0],R.c[1],p[0],p[1])<=R.r+15);if(near.length<3)continue;
   const runs=[];let cr=[];for(const p of near){if(cr.length&&p[2]-cr.at(-1)[2]>12){runs.push(cr);cr=[]}cr.push(p)}if(cr.length)runs.push(cr);
   for(const run of runs){const on=run.filter(p=>rdist(R,p)<=12);if(on.length<2)continue;const a=on[0],b=on.at(-1);if(b[2]-a[2]<8)continue;
    const f=((bear(ptAt(b[2]+3),ptAt(b[2]+25))-bear(ptAt(a[2]-25),ptAt(a[2]-3))+540)%360)-180,ei=cnode(R,a,0),xi=cnode(R,b,1);let x=0;
@@ -272,14 +275,16 @@ function withRB(ms){if(!RBD)return ms;const ev=rbEvents();if(!ev.length)return m
  const out=ms.filter(m=>!ev.some(e=>m[2]>=e.s0-45&&m[2]<=e.s1+45));for(const e of ev)out.push([e.lat,e.lon,e.s0,'rotary','',e.x,'',e.f]);return out.sort((a,b)=>a[2]-b[2])}
 $('#snd').onclick=e=>{snd=!snd;e.target.setAttribute('aria-pressed',snd);if(snd){say('Głos włączony');play('przystanek_obowiazkowy')}};
 /* położenie na trasie */
-function pr(y,x,lo,hi,first){const sh=D.shapes[trip[5]];if(!sh||sh.length<2)return[lo,1e9];const k=Math.cos(y*Math.PI/180)*111320,c=[];
- for(let i=0;i<sh.length-1;i++){if(cd[i+1]<lo||cd[i]>hi)continue;const a=sh[i],b=sh[i+1],vx=(b[1]-a[1])*k,vy=(b[0]-a[0])*110540,wx=(x-a[1])*k,wy=(y-a[0])*110540,L=vx*vx+vy*vy,t=L?Math.max(0,Math.min(1,(vx*wx+vy*wy)/L)):0;c.push([Math.hypot(wx-t*vx,wy-t*vy),cd[i]+t*Math.sqrt(L)])}
+function pr(y,x,lo,hi,first,gh){const sh=D.shapes[trip[5]];if(!sh||sh.length<2)return[lo,1e9];const k=Math.cos(y*Math.PI/180)*111320,c=[];
+ for(let i=0;i<sh.length-1;i++){if(cd[i+1]<lo||cd[i]>hi)continue;const a=sh[i],b=sh[i+1],vx=(b[1]-a[1])*k,vy=(b[0]-a[0])*110540,wx=(x-a[1])*k,wy=(y-a[0])*110540,L=vx*vx+vy*vy,t=L?Math.max(0,Math.min(1,(vx*wx+vy*wy)/L)):0,d=Math.hypot(wx-t*vx,wy-t*vy);
+  let pen=0;if(gh!=null&&L>1){const sb=(Math.atan2(vx,vy)*180/Math.PI+360)%360;if(Math.abs(((sb-gh+540)%360)-180)>80)pen=60}
+  c.push([d+pen,d,cd[i]+t*Math.sqrt(L)])}
  if(!c.length)return[lo,1e9];let b=c[0];for(const z of c)if(z[0]<b[0])b=z;
- if(first)b=c.filter(z=>z[0]<=b[0]+15).reduce((p,z)=>z[1]<p[1]?z:p);return[b[1],b[0]]}
+ if(first)b=c.filter(z=>z[0]<=b[0]+15).reduce((p,z)=>z[2]<p[2]?z:p);return[b[2],b[1]]}
 function initShape(){const sh=D.shapes[trip[5]]||[];cd=[0];for(let i=1;i<sh.length;i++)cd.push(cd[i-1]+dist(sh[i-1][0],sh[i-1][1],sh[i][0],sh[i][1]));mn=withRB(D.man[trip[5]]||[]);
  sa=[];let pv=0;for(const i of trip[6]){const s=D.stops[i],r=pr(s[1],s[2],pv-30,pv+3000,0)[0];sa.push(r);pv=Math.max(pv,r)}}
-function proj(y,x){if(!D.shapes[trip[5]])return;let[r,d]=started?pr(y,x,al-150,al+1000,0):pr(y,x,-1,1e9,1);
- if(started&&(d>60||recov)){const g=pr(y,x,al-300,1e9,1);if(g[1]<=40||(recov&&g[1]<d)){r=g[0];d=g[1]}}   // po utracie GPS szukamy dalej na całej trasie
+function proj(y,x,gh){if(!D.shapes[trip[5]])return;const n=trip[6].length;let[r,d]=started?pr(y,x,Math.min(sa[Math.max(cur-1,0)]-60,al-100),Math.max(sa[Math.min(cur+1,n-1)]+80,al+150),0,gh):pr(y,x,-1,1e9,1,gh);
+ if(started&&(d>60||recov)){const g=pr(y,x,al-300,1e9,1,gh);if(g[1]<=40||(recov&&g[1]<d)){r=g[0];d=g[1]}}   // po utracie GPS szukamy dalej na całej trasie
  recov=false;const off=d>60;
  if(!off){al=r;started=true;advance()}onRt=!off&&started;$('#off').style.display=off&&started?'block':'none';manv(off);blinkUpdate();
  if(!off&&started&&!fin&&cur===trip[6].length-1&&(sa[cur]-al<=20||al>=cd[cd.length-1]-12)){fin=true;const t0=trip;setTimeout(()=>{if(trip===t0&&si<shift.length-1){si++;open(shift[si])}},4000)}}
@@ -294,7 +299,7 @@ $('#next').onclick=()=>{if(cur>=trip[6].length-1&&si<shift.length-1){si++;open(s
 function layout(){const w=$('#mapw').clientWidth,h=$('#mapw').clientHeight,m=$('#map'),d=follow?Math.ceil(Math.hypot(w,h)):0;m.style.width=d?d+'px':'100%';m.style.height=d?d+'px':'100%';if(map)map.invalidateSize({animate:false})}
 function spin(a){if(a==null)return;ang+=((a-ang)%360+540)%360-180;const m=$('#map');m.style.transform='translate(-50%,-50%) rotate('+(-ang)+'deg)';m.style.setProperty('--ur',ang+'deg')}
 function ahead(y,x){const z=Math.max(map.getZoom(),16),c=Math.cos(y*Math.PI/180),m=$('#mapw').clientHeight*.2*156543*c/2**z,r=hd*Math.PI/180;return[y+Math.cos(r)*m/110540,x+Math.sin(r)*m/(111320*c)]}
-function setFol(v){follow=v;const b=$('#fol');b.textContent=v?'Wyśrodkowano':'Nie wyśrodkowano';b.setAttribute('aria-pressed',v);if(!map)return;layout();
+function setFol(v){follow=v;lastSet=null;lastSp=null;const b=$('#fol');b.textContent=v?'Wyśrodkowano':'Nie wyśrodkowano';b.setAttribute('aria-pressed',v);if(!map)return;layout();
  if(v){map.dragging.disable();spin(hd);if(me){const l=me.getLatLng();map.setView(ahead(l.lat,l.lng),Math.max(map.getZoom(),16),{animate:false})}}
  else{map.dragging.enable();ang=0;const m=$('#map');m.style.transform='translate(-50%,-50%) rotate(0deg)';m.style.setProperty('--ur','0deg')}}
 $('#fol').onclick=()=>setFol(!follow);
